@@ -483,25 +483,66 @@ function onEmpresaChange() {
 }
 
 // BANNER & METRICS
-function getCorteDates() {
-  const y=today.getFullYear(),m=today.getMonth();
-  const corteProx = today.getDate()<=14 ? new Date(y,m,14) : new Date(y,m+1,14);
-  const inicio = today.getDate()<=14 ? new Date(y,m-1,15) : new Date(y,m,15);
+const CORTE_DIA = {
+  'Grupo Damosal': 30,
+  'DML': 11,
+  'BRAINZEN': 15,
+  'POLKANI': null,
+  'NILS': 25
+};
+
+function getCorteDates(empresa) {
+  const y=today.getFullYear(), m=today.getMonth();
+  const dia = CORTE_DIA[empresa];
+  if (!dia) return null;
+  const corteProx = today.getDate()<=dia ? new Date(y,m,dia) : new Date(y,m+1,dia);
+  const inicio = today.getDate()<=dia ? new Date(y,m-1,dia+1) : new Date(y,m,dia+1);
   return { corteProx, inicio };
 }
+
 function getPeriodo() {
-  const { corteProx, inicio } = getCorteDates();
-  return getFiltered().filter(e=>{ const d=parseLocal(e.fecha); return d>=inicio&&d<=corteProx; });
+  const eg = getEmpresaGlobal();
+  if (eg === 'TODAS') {
+    return getFiltered().filter(e => {
+      const dia = CORTE_DIA[e.empresa];
+      if (!dia) return false;
+      const y=today.getFullYear(), m=today.getMonth();
+      const corteProx = today.getDate()<=dia ? new Date(y,m,dia) : new Date(y,m+1,dia);
+      const inicio = today.getDate()<=dia ? new Date(y,m-1,dia+1) : new Date(y,m,dia+1);
+      const d = parseLocal(e.fecha);
+      return d>=inicio && d<=corteProx;
+    });
+  }
+  const dates = getCorteDates(eg);
+  if (!dates) return [];
+  return getFiltered().filter(e=>{ const d=parseLocal(e.fecha); return d>=dates.inicio&&d<=dates.corteProx; });
 }
 
 function renderBanner() {
-  const { corteProx } = getCorteDates();
-  const dias = Math.ceil((corteProx-today)/86400000);
-  const mes = MESES[corteProx.getMonth()].toLowerCase();
   const eg = getEmpresaGlobal();
-  const empTxt = eg==='TODAS' ? 'Todas las empresas' : eg;
+  if (eg === 'POLKANI') {
+    document.getElementById('banner-corte').innerHTML =
+      `📌 <strong>POLKANI</strong> — Esta empresa no tiene tarjeta de crédito registrada`;
+    return;
+  }
+  if (eg === 'TODAS') {
+    const lineas = Object.entries(CORTE_DIA)
+      .filter(([,d])=>d!==null)
+      .map(([emp,dia])=>{
+        const y=today.getFullYear(),m=today.getMonth();
+        const corteProx = today.getDate()<=dia ? new Date(y,m,dia) : new Date(y,m+1,dia);
+        const dias = Math.ceil((corteProx-today)/86400000);
+        return `<strong>${emp}:</strong> día ${dia} · ${dias}d`;
+      }).join(' &nbsp;|&nbsp; ');
+    document.getElementById('banner-corte').innerHTML = `📌 Próximos cortes — ${lineas}`;
+    return;
+  }
+  const dates = getCorteDates(eg);
+  const dia = CORTE_DIA[eg];
+  const dias = Math.ceil((dates.corteProx-today)/86400000);
+  const mes = MESES[dates.corteProx.getMonth()].toLowerCase();
   document.getElementById('banner-corte').innerHTML =
-    `📌 <strong>${empTxt}</strong> — Próximo corte: <strong>14 de ${mes} ${corteProx.getFullYear()}</strong> · <strong>${dias} día${dias!==1?'s':''}</strong> restante${dias!==1?'s':''}`;
+    `📌 <strong>${eg}</strong> — Próximo corte: <strong>${dia} de ${mes} ${dates.corteProx.getFullYear()}</strong> · <strong>${dias} día${dias!==1?'s':''}</strong> restante${dias!==1?'s':''}`;
 }
 
 function renderMetrics() {
