@@ -1,66 +1,773 @@
-function doGet(e) {
-  return handleRequest(e);
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Calendario de Tesorería</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #F4F3EF;
+  --surface: #FFFFFF;
+  --surface2: #ECEAE4;
+  --border: #D9D6CE;
+  --border2: #E8E5DF;
+  --text: #1A1916;
+  --text2: #6B6860;
+  --text3: #9E9B94;
+  --green: #1A7A56;
+  --green-bg: #E3F5ED;
+  --red: #C0392B;
+  --red-bg: #FBEAEA;
+  --blue: #1A4F8A;
+  --blue-bg: #E5EEF8;
+  --amber: #8A5A00;
+  --amber-bg: #FDF3DC;
+  --radius: 8px;
+  --radius-lg: 12px;
+  --shadow: 0 1px 4px rgba(0,0,0,0.08);
 }
-function doPost(e) {
-  return handleRequest(e);
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+input, select, button { font-family: 'DM Sans', sans-serif; }
+
+.shell { max-width: 1260px; margin: 0 auto; padding: 0 1.5rem 3rem; }
+header { padding: 1.5rem 0 0; margin-bottom: 1.2rem; display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+.logo { display: flex; align-items: center; gap: 10px; }
+.logo-icon { width: 36px; height: 36px; background: var(--text); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: var(--bg); font-size: 18px; }
+.logo-text { font-size: 18px; font-weight: 600; letter-spacing: -0.02em; }
+.logo-sub { font-size: 12px; color: var(--text3); font-family: 'DM Mono', monospace; }
+.header-right { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.status-info { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--text3); text-align: right; }
+.status-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 5px; background: #ccc; }
+.status-dot.online { background: var(--green); box-shadow: 0 0 0 2px var(--green-bg); }
+.status-dot.offline { background: var(--red); }
+.status-dot.loading { background: var(--amber); animation: pulse 1s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+/* EMPRESA SELECTOR */
+.empresa-selector { display: flex; align-items: center; gap: 8px; }
+.empresa-selector label { font-size: 11px; color: var(--text3); font-family: 'DM Mono', monospace; text-transform: uppercase; letter-spacing: .05em; white-space: nowrap; }
+.empresa-select { font-size: 13px; font-weight: 600; padding: 7px 12px; border: 1.5px solid var(--text); border-radius: var(--radius); background: var(--surface); color: var(--text); cursor: pointer; min-width: 180px; }
+.empresa-select:focus { outline: none; border-color: var(--blue); }
+
+/* EMPRESA BADGE */
+.emp-badge { font-size: 10px; padding: 2px 8px; border-radius: 20px; font-weight: 600; display: inline-block; font-family: 'DM Mono', monospace; white-space: nowrap; }
+.emp-DAMOSAL { background: #E3F5ED; color: #1A7A56; }
+.emp-DML { background: #E5EEF8; color: #1A4F8A; }
+.emp-BRAINZEN { background: #FBEAF0; color: #993556; }
+.emp-POLKANI { background: #EEEDFE; color: #3C3489; }
+.emp-NILS { background: #FDF3DC; color: #8A5A00; }
+
+.tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--border); margin-bottom: 1.5rem; }
+.tab { padding: 9px 16px; font-size: 13px; font-weight: 500; color: var(--text2); cursor: pointer; border: none; background: none; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color .15s; }
+.tab:hover { color: var(--text); }
+.tab.active { color: var(--text); border-bottom-color: var(--text); }
+
+.spinner { width: 28px; height: 28px; border: 2px solid var(--border); border-top-color: var(--text); border-radius: 50%; animation: spin .7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); gap: 10px; margin-bottom: 1.5rem; }
+.metric { background: var(--surface); border: 1px solid var(--border2); border-radius: var(--radius-lg); padding: 13px 15px; box-shadow: var(--shadow); }
+.metric-label { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: .06em; font-family: 'DM Mono', monospace; margin-bottom: 5px; }
+.metric-value { font-size: 19px; font-weight: 600; letter-spacing: -.02em; }
+.metric-sub { font-size: 11px; color: var(--text3); margin-top: 3px; }
+.v-pos { color: var(--green); } .v-neg { color: var(--red); } .v-amber { color: var(--amber); } .v-blue { color: var(--blue); }
+
+.banner { background: var(--blue-bg); border-left: 3px solid var(--blue); border-radius: 0 var(--radius) var(--radius) 0; padding: 10px 14px; margin-bottom: 1.2rem; font-size: 13px; color: var(--blue); font-weight: 500; }
+
+.grid-2 { display: grid; grid-template-columns: 1fr 320px; gap: 1.5rem; align-items: start; }
+@media (max-width: 900px) { .grid-2 { grid-template-columns: 1fr; } }
+
+.card { background: var(--surface); border: 1px solid var(--border2); border-radius: var(--radius-lg); padding: 1.1rem 1.25rem; margin-bottom: 1rem; box-shadow: var(--shadow); }
+.card-title { font-size: 11px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: .07em; font-family: 'DM Mono', monospace; margin-bottom: 12px; }
+
+.cal-nav { display: flex; align-items: center; gap: 12px; margin-bottom: 1rem; flex-wrap: wrap; }
+.cal-nav button { background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; padding: 5px 12px; cursor: pointer; font-size: 14px; color: var(--text2); }
+.cal-nav button:hover { background: var(--border); }
+.cal-month { font-size: 15px; font-weight: 600; flex: 1; }
+.cal-legend { display: flex; gap: 10px; flex-wrap: wrap; }
+.leg { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text2); font-family: 'DM Mono', monospace; }
+.leg-dot { width: 8px; height: 8px; border-radius: 50%; }
+
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+.cal-day-name { text-align: center; font-size: 11px; color: var(--text3); padding: 6px 0; font-family: 'DM Mono', monospace; font-weight: 500; }
+.cal-cell { min-height: 82px; border: 1px solid var(--border2); border-radius: 7px; padding: 6px; cursor: pointer; transition: background .13s, border-color .13s; background: var(--surface); }
+.cal-cell:hover { background: var(--blue-bg); border-color: #B0C8E8; }
+.cal-cell.other { opacity: .35; pointer-events: none; }
+.cal-cell.today { border-color: var(--blue); }
+.cal-cell.selected { background: var(--surface2); border-color: var(--text3); }
+.day-num { font-size: 11px; font-weight: 600; color: var(--text3); margin-bottom: 3px; font-family: 'DM Mono', monospace; }
+.cal-cell.today .day-num { color: var(--blue); }
+
+.chip { font-size: 10px; line-height: 1.35; padding: 2px 5px; border-radius: 4px; margin-bottom: 2px; overflow: hidden; }
+.chip-row { display: flex; justify-content: space-between; gap: 3px; align-items: baseline; }
+.chip-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }
+.chip-amt { white-space: nowrap; font-weight: 600; font-family: 'DM Mono', monospace; font-size: 9px; flex-shrink: 0; }
+.chip-cobro { background: var(--green-bg); color: var(--green); }
+.chip-pago { background: var(--red-bg); color: var(--red); }
+.chip-impuesto { background: var(--blue-bg); color: var(--blue); }
+.chip-nomina { background: var(--amber-bg); color: var(--amber); }
+.chip-mas { font-size: 10px; color: var(--text3); padding-left: 2px; font-family: 'DM Mono', monospace; }
+
+.ev-list { list-style: none; }
+.ev-item { display: flex; align-items: flex-start; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--border2); font-size: 13px; }
+.ev-item:last-child { border-bottom: none; }
+.ev-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 5px; }
+.dot-cobro { background: var(--green); } .dot-pago { background: var(--red); }
+.dot-impuesto { background: var(--blue); } .dot-nomina { background: var(--amber); }
+.ev-info { flex: 1; }
+.ev-name { font-weight: 500; }
+.ev-meta { font-size: 11px; color: var(--text3); margin-top: 2px; font-family: 'DM Mono', monospace; }
+.ev-amount { font-weight: 600; white-space: nowrap; font-family: 'DM Mono', monospace; font-size: 13px; }
+.amt-pos { color: var(--green); } .amt-neg { color: var(--red); }
+.ev-del { cursor: pointer; font-size: 12px; color: var(--text3); margin-left: 6px; padding: 2px 4px; border-radius: 4px; border: none; background: none; }
+.ev-del:hover { background: var(--red-bg); color: var(--red); }
+
+.form-row { display: flex; gap: 8px; margin-bottom: 8px; }
+.fg { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.fg label { font-size: 11px; color: var(--text3); font-family: 'DM Mono', monospace; text-transform: uppercase; letter-spacing: .04em; }
+.fg input, .fg select { font-size: 13px; padding: 7px 9px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg); color: var(--text); width: 100%; }
+.fg input:focus, .fg select:focus { outline: none; border-color: var(--blue); background: var(--surface); }
+.btn-add { width: 100%; padding: 9px; font-size: 13px; font-weight: 600; cursor: pointer; background: var(--text); color: var(--bg); border: none; border-radius: var(--radius); margin-top: 4px; transition: opacity .15s; }
+.btn-add:hover { opacity: .82; }
+.btn-add:disabled { opacity: .5; cursor: not-allowed; }
+
+.pill { font-size: 10px; padding: 2px 8px; border-radius: 20px; font-weight: 500; display: inline-block; font-family: 'DM Mono', monospace; }
+.pill-pendiente { background: var(--amber-bg); color: var(--amber); }
+.pill-pagado { background: var(--green-bg); color: var(--green); }
+.pill-vencido { background: var(--red-bg); color: var(--red); }
+
+.filter-bar { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 1rem; }
+.fbtn { padding: 5px 12px; font-size: 12px; border: 1px solid var(--border); border-radius: 20px; cursor: pointer; background: none; color: var(--text2); transition: all .13s; }
+.fbtn:hover { border-color: var(--text3); color: var(--text); }
+.fbtn.active { background: var(--text); color: var(--bg); border-color: var(--text); }
+
+.sort-bar { display: flex; align-items: center; gap: 8px; margin-bottom: .8rem; font-size: 12px; color: var(--text3); flex-wrap: wrap; }
+.sort-bar select { font-size: 12px; padding: 4px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); width: auto; }
+.sort-count { margin-left: auto; font-family: 'DM Mono', monospace; font-size: 11px; color: var(--text3); }
+
+.tbl-wrap { border: 1px solid var(--border2); border-radius: var(--radius-lg); overflow: hidden; background: var(--surface); box-shadow: var(--shadow); }
+.tbl { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
+.tbl th { text-align: left; padding: 8px 10px; font-size: 11px; color: var(--text3); font-weight: 600; border-bottom: 1px solid var(--border2); background: var(--bg); font-family: 'DM Mono', monospace; text-transform: uppercase; letter-spacing: .04em; }
+.tbl td { padding: 8px 10px; border-bottom: 1px solid var(--border2); color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tbl tr:last-child td { border-bottom: none; }
+.tbl tr:hover td { background: var(--bg); }
+.tbl td.r { text-align: right; font-family: 'DM Mono', monospace; }
+.tbl tr.cur-month td { background: #F0F5FB; }
+
+/* FLUJO TABS */
+.flujo-tabs { display: flex; gap: 6px; margin-bottom: 1rem; flex-wrap: wrap; }
+.ftab { padding: 6px 14px; font-size: 12px; font-weight: 500; border: 1px solid var(--border); border-radius: 20px; cursor: pointer; background: none; color: var(--text2); transition: all .13s; }
+.ftab:hover { color: var(--text); border-color: var(--text3); }
+.ftab.active { background: var(--text); color: var(--bg); border-color: var(--text); }
+
+.chart-wrap { position: relative; width: 100%; height: 230px; margin-top: 8px; }
+.prog-bar { height: 8px; border-radius: 6px; background: var(--surface2); overflow: hidden; margin: 5px 0 2px; }
+.prog-fill { height: 100%; border-radius: 6px; transition: width .4s; }
+.prog-green { background: var(--green); } .prog-amber { background: #D4A017; }
+.prog-red { background: var(--red); } .prog-blue { background: var(--blue); }
+
+.empty { text-align: center; padding: 2.5rem; color: var(--text3); font-size: 13px; font-family: 'DM Mono', monospace; }
+
+.toast-wrap { position: fixed; bottom: 24px; right: 24px; z-index: 999; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+.toast { background: var(--text); color: var(--bg); padding: 10px 16px; border-radius: 8px; font-size: 13px; font-weight: 500; opacity: 0; transform: translateY(10px); transition: all .25s; max-width: 300px; }
+.toast.show { opacity: 1; transform: translateY(0); }
+.toast.error { background: var(--red); }
+.toast.success { background: var(--green); }
+</style>
+</head>
+<body>
+<div class="shell">
+  <header>
+    <div class="logo">
+      <div class="logo-icon">📅</div>
+      <div>
+        <div class="logo-text">Tesorería</div>
+        <div class="logo-sub">Calendario Centralizado</div>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="empresa-selector">
+        <label>Empresa</label>
+        <select class="empresa-select" id="empresa-global" onchange="onEmpresaChange()">
+          <option value="TODAS">— Todas las empresas —</option>
+          <option value="Grupo Damosal">Grupo Damosal</option>
+          <option value="DML">DML</option>
+          <option value="BRAINZEN">BRAINZEN</option>
+          <option value="POLKANI">POLKANI</option>
+          <option value="NILS">NILS</option>
+        </select>
+      </div>
+      <div class="status-info">
+        <div><span class="status-dot loading" id="status-dot"></span><span id="status-text">Conectando...</span></div>
+        <div style="margin-top:3px" id="sync-time"></div>
+      </div>
+    </div>
+  </header>
+
+  <div class="tabs">
+    <button class="tab active" onclick="sw('calendario')">Calendario</button>
+    <button class="tab" onclick="sw('listado')">Listado de eventos</button>
+    <button class="tab" onclick="sw('flujo')">Flujo proyectado</button>
+  </div>
+
+  <!-- CALENDARIO -->
+  <div id="sec-calendario" class="section active">
+    <div id="banner-corte" class="banner"></div>
+    <div class="metrics" id="metrics-top"></div>
+    <div class="grid-2">
+      <div>
+        <div class="card">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:8px;">
+            <div class="cal-nav" style="margin-bottom:0">
+              <button onclick="chMes(-1)">←</button>
+              <span class="cal-month" id="cal-title"></span>
+              <button onclick="chMes(1)">→</button>
+            </div>
+            <div class="cal-legend">
+              <span class="leg"><span class="leg-dot" style="background:var(--green)"></span>Cobro</span>
+              <span class="leg"><span class="leg-dot" style="background:var(--red)"></span>Pago</span>
+              <span class="leg"><span class="leg-dot" style="background:var(--blue)"></span>Impuesto</span>
+              <span class="leg"><span class="leg-dot" style="background:var(--amber)"></span>Nómina</span>
+            </div>
+          </div>
+          <div class="cal-grid" id="cal-grid"></div>
+        </div>
+        <div class="card">
+          <div class="card-title" id="detail-title">Eventos del mes</div>
+          <ul class="ev-list" id="ev-list"></ul>
+        </div>
+      </div>
+      <div>
+        <div class="card">
+          <div class="card-title">Registrar evento</div>
+          <div class="form-row"><div class="fg">
+            <label>Concepto</label>
+            <input type="text" id="f-con" placeholder="Ej: Pago proveedor, cobro cliente...">
+          </div></div>
+          <div class="form-row">
+            <div class="fg"><label>Empresa</label>
+              <select id="f-empresa">
+                <option value="Grupo Damosal">Grupo Damosal</option>
+                <option value="DML">DML</option>
+                <option value="BRAINZEN">BRAINZEN</option>
+                <option value="POLKANI">POLKANI</option>
+                <option value="NILS">NILS</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="fg"><label>Tipo</label>
+              <select id="f-tipo">
+                <option value="cobro">Cobro</option>
+                <option value="pago">Pago</option>
+                <option value="impuesto">Impuesto</option>
+                <option value="nomina">Nómina</option>
+              </select>
+            </div>
+            <div class="fg"><label>Fecha</label><input type="date" id="f-fecha"></div>
+          </div>
+          <div class="form-row">
+            <div class="fg"><label>Monto (MXN)</label><input type="number" id="f-monto" placeholder="0.00" step="0.01"></div>
+            <div class="fg"><label>Estado</label>
+              <select id="f-estado">
+                <option value="pendiente">Pendiente</option>
+                <option value="pagado">Pagado</option>
+              </select>
+            </div>
+          </div>
+          <button class="btn-add" id="btn-add" onclick="addEvento()">+ Registrar</button>
+        </div>
+        <div class="card" style="background:var(--bg);border-color:var(--border2);box-shadow:none;">
+          <div class="card-title">Resumen — periodo actual</div>
+          <div id="cat-resumen"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LISTADO -->
+  <div id="sec-listado" class="section" style="display:none">
+    <div class="filter-bar" id="fbar-listado">
+      <button class="fbtn active" onclick="flt('todos',this)">Todos</button>
+      <button class="fbtn" onclick="flt('cobro',this)">Cobros</button>
+      <button class="fbtn" onclick="flt('pago',this)">Pagos</button>
+      <button class="fbtn" onclick="flt('impuesto',this)">Impuestos</button>
+      <button class="fbtn" onclick="flt('nomina',this)">Nómina</button>
+      <button class="fbtn" onclick="flt('pendiente',this)">Pendientes</button>
+      <button class="fbtn" onclick="flt('pagado',this)">Pagados</button>
+    </div>
+    <div class="sort-bar">
+      <label>Ordenar por</label>
+      <select id="sort-sel" onchange="renderListado()">
+        <option value="fecha-asc">Fecha ↑</option>
+        <option value="fecha-desc">Fecha ↓</option>
+        <option value="monto-desc">Monto mayor</option>
+        <option value="monto-asc">Monto menor</option>
+        <option value="concepto-asc">Concepto A–Z</option>
+      </select>
+      <span class="sort-count" id="cnt-listado"></span>
+    </div>
+    <div class="tbl-wrap">
+      <table class="tbl">
+        <thead><tr>
+          <th style="width:26%">Concepto</th>
+          <th style="width:12%">Empresa</th>
+          <th style="width:10%">Tipo</th>
+          <th style="width:11%">Fecha</th>
+          <th style="width:15%;text-align:right">Monto</th>
+          <th style="width:10%">Estado</th>
+          <th style="width:7%;text-align:right">Año</th>
+          <th style="width:4%"></th>
+        </tr></thead>
+        <tbody id="tbody-listado"></tbody>
+      </table>
+    </div>
+    <div id="empty-listado" class="empty" style="display:none">Sin eventos. Agrega uno desde el Calendario.</div>
+  </div>
+
+  <!-- FLUJO -->
+  <div id="sec-flujo" class="section" style="display:none">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:10px;">
+      <div>
+        <div style="font-size:13px;font-weight:600;margin-bottom:4px;">Flujo proyectado al cierre del año</div>
+        <div style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace" id="flujo-empresa-label"></div>
+      </div>
+      <div class="flujo-tabs" id="flujo-tabs">
+        <button class="ftab active" onclick="setFlujoEmpresa('TODAS',this)">Todas</button>
+        <button class="ftab" onclick="setFlujoEmpresa('Grupo Damosal',this)">Grupo Damosal</button>
+        <button class="ftab" onclick="setFlujoEmpresa('DML',this)">DML</button>
+        <button class="ftab" onclick="setFlujoEmpresa('BRAINZEN',this)">BRAINZEN</button>
+        <button class="ftab" onclick="setFlujoEmpresa('POLKANI',this)">POLKANI</button>
+        <button class="ftab" onclick="setFlujoEmpresa('NILS',this)">NILS</button>
+      </div>
+    </div>
+    <div class="card">
+      <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:6px;font-size:11px;color:var(--text3);font-family:'DM Mono',monospace;">
+        <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#5DCAA5;margin-right:4px"></span>Ingresos</span>
+        <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#F0997B;margin-right:4px"></span>Egresos</span>
+        <span><span style="display:inline-block;width:3px;height:11px;background:var(--blue);margin-right:4px;vertical-align:middle"></span>Flujo neto</span>
+      </div>
+      <div class="chart-wrap"><canvas id="flujoChart"></canvas></div>
+    </div>
+    <div class="tbl-wrap">
+      <table class="tbl">
+        <thead><tr>
+          <th>Mes</th>
+          <th style="text-align:right">Ingresos</th>
+          <th style="text-align:right">Egresos</th>
+          <th style="text-align:right">Flujo neto</th>
+          <th style="text-align:right">Saldo acum.</th>
+        </tr></thead>
+        <tbody id="tbody-flujo"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="toast-wrap" id="toast-wrap"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+const API = 'https://script.google.com/macros/s/AKfycbwdZOp1utrj6Nb9PF7lkADcRK2FtMSdXlI_cPVnu0gS-DRu3xK5WI7zsbKg6Dh2dRI/exec';
+const EMPRESAS = ['Grupo Damosal','DML','BRAINZEN','POLKANI','NILS'];
+
+const today = new Date();
+let eventos = [];
+let curYear = today.getFullYear();
+let curMonth = today.getMonth();
+let selDay = null;
+let listFilter = 'todos';
+let flujoChart = null;
+let flujoEmpresa = 'TODAS';
+
+const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+const DIAS = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
+const TYPE_LABEL = { cobro:'Cobro', pago:'Pago', impuesto:'Impuesto', nomina:'Nómina' };
+const TYPE_COLOR = { cobro:'var(--green)', pago:'var(--red)', impuesto:'var(--blue)', nomina:'var(--amber)' };
+const STATUS_PILL = { pendiente:'pill-pendiente', pagado:'pill-pagado', vencido:'pill-vencido' };
+const EMP_KEY = { 'Grupo Damosal':'DAMOSAL', 'DML':'DML', 'BRAINZEN':'BRAINZEN', 'POLKANI':'POLKANI', 'NILS':'NILS' };
+
+function getEmpresaGlobal() { return document.getElementById('empresa-global').value; }
+function isIng(tipo) { return tipo === 'cobro'; }
+function isEgr(tipo) { return ['pago','impuesto','nomina'].includes(tipo); }
+function parseLocal(s) { if(!s) return new Date(0); const [y,m,d] = String(s).split('-').map(Number); return new Date(y,m-1,d); }
+function fmt(n) { return '$'+Math.abs(n).toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function fmtS(n) { return '$'+Math.abs(n).toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:0}); }
+function fmtShort(n) { const a=Math.abs(n); if(a>=1000000) return '$'+(a/1000000).toFixed(1)+'M'; if(a>=1000) return '$'+Math.round(a/1000)+'k'; return '$'+Math.round(a); }
+function empBadge(emp) { const k=EMP_KEY[emp]||'DAMOSAL'; return `<span class="emp-badge emp-${k}">${emp||''}</span>`; }
+
+function getFiltered() {
+  const eg = getEmpresaGlobal();
+  if (eg === 'TODAS') return eventos;
+  return eventos.filter(e => e.empresa === eg);
 }
-function handleRequest(e) {
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Eventos');
 
-  let action = '';
-  let body = {};
+// API
+function setStatus(state, text) {
+  document.getElementById('status-dot').className = 'status-dot ' + state;
+  document.getElementById('status-text').textContent = text;
+}
+function setSyncTime() {
+  const n = new Date();
+  document.getElementById('sync-time').textContent = 'Sync: ' + n.toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
+}
+function toast(msg, type='') {
+  const wrap = document.getElementById('toast-wrap');
+  const t = document.createElement('div');
+  t.className = 'toast ' + type;
+  t.textContent = msg;
+  wrap.appendChild(t);
+  requestAnimationFrame(()=>requestAnimationFrame(()=>t.classList.add('show')));
+  setTimeout(()=>{ t.classList.remove('show'); setTimeout(()=>t.remove(),300); }, 3000);
+}
 
-  if (e.parameter && e.parameter.action) {
-    action = e.parameter.action;
-  } else if (e.postData) {
-    body = JSON.parse(e.postData.contents);
-    action = body.action;
+async function apiGet() {
+  setStatus('loading','Cargando...');
+  try {
+    const r = await fetch(`${API}?action=getAll`, { redirect:'follow' });
+    const data = await r.json();
+    if (data.ok) {
+      eventos = (data.data||[]).map(e=>({
+        id: String(e.id),
+        concepto: e.concepto,
+        tipo: e.tipo,
+        fecha: e.fecha,
+        monto: parseFloat(e.monto)||0,
+        estado: e.estado,
+        empresa: e.empresa || 'Grupo Damosal'
+      })).filter(e=>e.concepto&&e.fecha);
+      setStatus('online','Conectado · Google Sheets');
+      setSyncTime();
+      renderAll();
+    } else throw new Error(data.error);
+  } catch(err) {
+    setStatus('offline','Sin conexión');
+    toast('Error al cargar: '+err.message,'error');
+  }
+}
+
+async function apiAdd(ev) {
+  const btn = document.getElementById('btn-add');
+  btn.disabled=true; btn.textContent='Guardando...';
+  try {
+    const r = await fetch(API,{ method:'POST', body:JSON.stringify({action:'add',...ev}), redirect:'follow' });
+    const data = await r.json();
+    if (data.ok) { toast('Guardado en Google Sheets ✓','success'); await apiGet(); }
+    else throw new Error(data.error);
+  } catch(err) { toast('Error al guardar: '+err.message,'error'); }
+  finally { btn.disabled=false; btn.textContent='+ Registrar'; }
+}
+
+async function apiDelete(id) {
+  try {
+    const r = await fetch(API,{ method:'POST', body:JSON.stringify({action:'delete',id}), redirect:'follow' });
+    const data = await r.json();
+    if (data.ok) { toast('Evento eliminado',''); await apiGet(); }
+    else throw new Error(data.error);
+  } catch(err) { toast('Error al eliminar: '+err.message,'error'); }
+}
+
+// EMPRESA CHANGE
+function onEmpresaChange() {
+  selDay = null;
+  renderAll();
+  // Sync flujo tab
+  const eg = getEmpresaGlobal();
+  flujoEmpresa = eg;
+  document.querySelectorAll('.ftab').forEach(b => {
+    b.classList.toggle('active', b.textContent === (eg==='TODAS'?'Todas':eg));
+  });
+  if (document.getElementById('sec-flujo').style.display !== 'none') renderFlujo();
+}
+
+// BANNER & METRICS
+function getCorteDates() {
+  const y=today.getFullYear(),m=today.getMonth();
+  const corteProx = today.getDate()<=14 ? new Date(y,m,14) : new Date(y,m+1,14);
+  const inicio = today.getDate()<=14 ? new Date(y,m-1,15) : new Date(y,m,15);
+  return { corteProx, inicio };
+}
+function getPeriodo() {
+  const { corteProx, inicio } = getCorteDates();
+  return getFiltered().filter(e=>{ const d=parseLocal(e.fecha); return d>=inicio&&d<=corteProx; });
+}
+
+function renderBanner() {
+  const { corteProx } = getCorteDates();
+  const dias = Math.ceil((corteProx-today)/86400000);
+  const mes = MESES[corteProx.getMonth()].toLowerCase();
+  const eg = getEmpresaGlobal();
+  const empTxt = eg==='TODAS' ? 'Todas las empresas' : eg;
+  document.getElementById('banner-corte').innerHTML =
+    `📌 <strong>${empTxt}</strong> — Próximo corte: <strong>14 de ${mes} ${corteProx.getFullYear()}</strong> · <strong>${dias} día${dias!==1?'s':''}</strong> restante${dias!==1?'s':''}`;
+}
+
+function renderMetrics() {
+  const p = getPeriodo();
+  const ing = p.filter(e=>isIng(e.tipo)).reduce((a,e)=>a+e.monto,0);
+  const egr = p.filter(e=>isEgr(e.tipo)).reduce((a,e)=>a+e.monto,0);
+  const neto = ing-egr;
+  const pend = getFiltered().filter(e=>e.estado==='pendiente'&&isEgr(e.tipo));
+  const totPend = pend.reduce((a,e)=>a+e.monto,0);
+  const monthly = getMonthly(getEmpresaGlobal());
+  const saldoDic = monthly[11].saldo;
+
+  document.getElementById('metrics-top').innerHTML = `
+    <div class="metric"><div class="metric-label">Ingresos al corte</div><div class="metric-value v-pos">${fmt(ing)}</div><div class="metric-sub">${p.filter(e=>isIng(e.tipo)).length} cobros</div></div>
+    <div class="metric"><div class="metric-label">Egresos al corte</div><div class="metric-value v-neg">${fmt(egr)}</div><div class="metric-sub">${p.filter(e=>isEgr(e.tipo)).length} pagos</div></div>
+    <div class="metric"><div class="metric-label">Flujo neto</div><div class="metric-value ${neto>=0?'v-pos':'v-neg'}">${(neto>=0?'+ ':'-')+fmt(Math.abs(neto))}</div><div class="metric-sub">Periodo actual</div></div>
+    <div class="metric"><div class="metric-label">Pagos pendientes</div><div class="metric-value v-amber">${fmt(totPend)}</div><div class="metric-sub">${pend.length} compromisos</div></div>
+    <div class="metric"><div class="metric-label">Saldo proy. dic</div><div class="metric-value ${saldoDic>=0?'v-pos':'v-neg'}">${fmtS(saldoDic)}</div><div class="metric-sub">Cierre del año</div></div>
+  `;
+
+  const catT = {};
+  getPeriodo().forEach(e=>{ catT[e.tipo]=(catT[e.tipo]||0)+e.monto; });
+  const sorted = Object.entries(catT).sort((a,b)=>b[1]-a[1]);
+  const tot = sorted.reduce((a,e)=>a+e[1],0);
+  document.getElementById('cat-resumen').innerHTML = sorted.length ? sorted.map(([tipo,val])=>{
+    const pct = tot ? Math.round(val/tot*100) : 0;
+    return `<div style="margin-bottom:9px">
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
+        <span>${TYPE_LABEL[tipo]||tipo}</span>
+        <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text3)">${fmt(val)} · ${pct}%</span>
+      </div>
+      <div class="prog-bar"><div class="prog-fill" style="width:${pct}%;background:${TYPE_COLOR[tipo]||'#888'}"></div></div>
+    </div>`;
+  }).join('') : '<div style="font-size:12px;color:var(--text3)">Sin eventos en el periodo actual</div>';
+}
+
+// CALENDAR
+function renderCalendar() {
+  document.getElementById('cal-title').textContent = MESES[curMonth]+' '+curYear;
+  const grid = document.getElementById('cal-grid');
+  grid.innerHTML = DIAS.map(d=>`<div class="cal-day-name">${d}</div>`).join('');
+
+  const firstDay = new Date(curYear,curMonth,1);
+  let startDow = firstDay.getDay(); startDow = startDow===0?6:startDow-1;
+  const daysInMonth = new Date(curYear,curMonth+1,0).getDate();
+  const prevDays = new Date(curYear,curMonth,0).getDate();
+
+  for(let i=0;i<startDow;i++) grid.innerHTML+=`<div class="cal-cell other"><div class="day-num">${prevDays-startDow+1+i}</div></div>`;
+
+  const evMap = {};
+  getFiltered().forEach(e=>{
+    const d=parseLocal(e.fecha);
+    if(d.getFullYear()===curYear&&d.getMonth()===curMonth){
+      const k=d.getDate(); if(!evMap[k])evMap[k]=[]; evMap[k].push(e);
+    }
+  });
+
+  const chipClass = {cobro:'chip-cobro',pago:'chip-pago',impuesto:'chip-impuesto',nomina:'chip-nomina'};
+  for(let d=1;d<=daysInMonth;d++){
+    const isToday = d===today.getDate()&&curMonth===today.getMonth()&&curYear===today.getFullYear();
+    const isSel = d===selDay;
+    const dayEvs = evMap[d]||[];
+    let chips = dayEvs.slice(0,2).map(e=>{
+      const pre=isIng(e.tipo)?'+':'-';
+      return `<div class="chip ${chipClass[e.tipo]}"><div class="chip-row"><span class="chip-name">${e.concepto}</span><span class="chip-amt">${pre}${fmtShort(e.monto)}</span></div></div>`;
+    }).join('');
+    if(dayEvs.length>2) chips+=`<div class="chip-mas">+${dayEvs.length-2} más</div>`;
+    grid.innerHTML+=`<div class="cal-cell${isToday?' today':''}${isSel?' selected':''}" onclick="selDia(${d})"><div class="day-num">${d}</div>${chips}</div>`;
   }
 
-  if (action === 'getAll') {
-    const data = sheet.getDataRange().getValues();
-    const headers = data[0];
-    const rows = data.slice(1).map(row => {
-      const obj = {};
-      headers.forEach((h, i) => obj[h] = row[i]);
-      return obj;
-    }).filter(r => r.id !== '' && r.id !== null && r.id !== undefined);
-    return ContentService
-      .createTextOutput(JSON.stringify({ ok: true, data: rows }))
-      .setMimeType(ContentService.MimeType.JSON);
-  }
+  const total=startDow+daysInMonth;
+  const rem=total%7===0?0:7-(total%7);
+  for(let i=1;i<=rem;i++) grid.innerHTML+=`<div class="cal-cell other"><div class="day-num">${i}</div></div>`;
+}
 
-  if (action === 'add') {
-    const lastRow = sheet.getLastRow();
-    const newId = lastRow;
-    sheet.appendRow([
-      newId,
-      body.concepto || '',
-      body.tipo || '',
-      body.fecha || '',
-      body.monto || 0,
-      body.estado || 'pendiente',
-      body.empresa || 'Grupo Damosal'
-    ]);
-    return ContentService
-      .createTextOutput(JSON.stringify({ ok: true, id: newId }))
-      .setMimeType(ContentService.MimeType.JSON);
-  }
+function selDia(d) { selDay=d; renderCalendar(); renderEvList(d); }
 
-  if (action === 'delete') {
-    const data = sheet.getDataRange().getValues();
-    for (let i = 1; i < data.length; i++) {
-      if (String(data[i][0]) === String(body.id)) {
-        sheet.deleteRow(i + 1);
-        break;
+function renderEvList(day) {
+  const title = document.getElementById('detail-title');
+  const list = document.getElementById('ev-list');
+  let evs;
+  if(day){
+    title.textContent=`Eventos — ${day} de ${MESES[curMonth]}`;
+    evs=getFiltered().filter(e=>{const d2=parseLocal(e.fecha);return d2.getFullYear()===curYear&&d2.getMonth()===curMonth&&d2.getDate()===day;});
+  } else {
+    title.textContent=`Eventos del mes — ${MESES[curMonth]}`;
+    evs=getFiltered().filter(e=>{const d2=parseLocal(e.fecha);return d2.getFullYear()===curYear&&d2.getMonth()===curMonth;});
+  }
+  evs.sort((a,b)=>parseLocal(a.fecha)-parseLocal(b.fecha));
+  if(!evs.length){list.innerHTML='<div class="empty" style="padding:1rem">Sin eventos en este período</div>';return;}
+  list.innerHTML=evs.map(e=>{
+    const fd=parseLocal(e.fecha);
+    const isVenc=e.estado==='pendiente'&&fd<today;
+    const st=isVenc?'vencido':e.estado;
+    const sign=isIng(e.tipo)?'amt-pos':'amt-neg';
+    const pre=isIng(e.tipo)?'+':'-';
+    return `<li class="ev-item">
+      <span class="ev-dot dot-${e.tipo}"></span>
+      <div class="ev-info">
+        <div class="ev-name">${e.concepto}</div>
+        <div class="ev-meta">${TYPE_LABEL[e.tipo]||e.tipo} · ${fd.toLocaleDateString('es-MX')} · ${empBadge(e.empresa)} · <span class="pill ${STATUS_PILL[st]}">${st.charAt(0).toUpperCase()+st.slice(1)}</span></div>
+      </div>
+      <span class="ev-amount ${sign}">${pre} ${fmt(e.monto)}</span>
+      <button class="ev-del" onclick="delEvento('${e.id}')">✕</button>
+    </li>`;
+  }).join('');
+}
+
+// LISTADO
+function flt(f,btn){
+  listFilter=f;
+  document.querySelectorAll('#fbar-listado .fbtn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderListado();
+}
+
+function renderListado(){
+  const tbody=document.getElementById('tbody-listado');
+  const empty=document.getElementById('empty-listado');
+  let fil=[...getFiltered()];
+  if(listFilter==='cobro') fil=fil.filter(e=>e.tipo==='cobro');
+  else if(listFilter==='pago') fil=fil.filter(e=>e.tipo==='pago');
+  else if(listFilter==='impuesto') fil=fil.filter(e=>e.tipo==='impuesto');
+  else if(listFilter==='nomina') fil=fil.filter(e=>e.tipo==='nomina');
+  else if(listFilter==='pendiente') fil=fil.filter(e=>e.estado==='pendiente');
+  else if(listFilter==='pagado') fil=fil.filter(e=>e.estado==='pagado');
+  const sv=document.getElementById('sort-sel').value;
+  if(sv==='fecha-asc') fil.sort((a,b)=>parseLocal(a.fecha)-parseLocal(b.fecha));
+  else if(sv==='fecha-desc') fil.sort((a,b)=>parseLocal(b.fecha)-parseLocal(a.fecha));
+  else if(sv==='monto-desc') fil.sort((a,b)=>b.monto-a.monto);
+  else if(sv==='monto-asc') fil.sort((a,b)=>a.monto-b.monto);
+  else fil.sort((a,b)=>a.concepto.localeCompare(b.concepto));
+  document.getElementById('cnt-listado').textContent=fil.length+' evento'+(fil.length!==1?'s':'');
+  if(!fil.length){tbody.innerHTML='';empty.style.display='block';return;}
+  empty.style.display='none';
+  tbody.innerHTML=fil.map(e=>{
+    const fd=parseLocal(e.fecha);
+    const isVenc=e.estado==='pendiente'&&fd<today;
+    const st=isVenc?'vencido':e.estado;
+    const sign=isIng(e.tipo)?'amt-pos':'amt-neg';
+    const pre=isIng(e.tipo)?'+':'-';
+    return `<tr>
+      <td style="font-weight:500">${e.concepto}</td>
+      <td>${empBadge(e.empresa)}</td>
+      <td><span style="font-size:11px;color:${TYPE_COLOR[e.tipo]};font-weight:600;font-family:'DM Mono',monospace">${TYPE_LABEL[e.tipo]||e.tipo}</span></td>
+      <td style="font-family:'DM Mono',monospace;font-size:12px">${fd.toLocaleDateString('es-MX')}</td>
+      <td class="r ${sign}">${pre} ${fmt(e.monto)}</td>
+      <td><span class="pill ${STATUS_PILL[st]}">${st.charAt(0).toUpperCase()+st.slice(1)}</span></td>
+      <td class="r" style="color:var(--text3);font-size:11px">${fd.getFullYear()}</td>
+      <td style="text-align:center"><button class="ev-del" onclick="delEvento('${e.id}')">✕</button></td>
+    </tr>`;
+  }).join('');
+}
+
+// FLUJO
+function setFlujoEmpresa(emp, btn) {
+  flujoEmpresa = emp;
+  document.querySelectorAll('.ftab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  // Sync global selector
+  document.getElementById('empresa-global').value = emp;
+  renderFlujo();
+  renderBanner();
+  renderMetrics();
+  renderCalendar();
+  renderEvList(selDay);
+}
+
+function getMonthly(empresa) {
+  const months = [];
+  let saldo = 0;
+  const src = empresa==='TODAS' ? eventos : eventos.filter(e=>e.empresa===empresa);
+  for(let m=0;m<12;m++){
+    const evs=src.filter(e=>{const d=parseLocal(e.fecha);return d.getFullYear()===curYear&&d.getMonth()===m;});
+    const ing=evs.filter(e=>isIng(e.tipo)).reduce((a,e)=>a+e.monto,0);
+    const egr=evs.filter(e=>isEgr(e.tipo)).reduce((a,e)=>a+e.monto,0);
+    const neto=ing-egr; saldo+=neto;
+    months.push({mes:MESES[m],ing,egr,neto,saldo,isCur:m===today.getMonth()&&curYear===today.getFullYear()});
+  }
+  return months;
+}
+
+function renderFlujo(){
+  const monthly = getMonthly(flujoEmpresa);
+  const empLabel = flujoEmpresa==='TODAS' ? 'Todas las empresas' : flujoEmpresa;
+  document.getElementById('flujo-empresa-label').textContent = 'Mostrando: ' + empLabel;
+
+  if(flujoChart){flujoChart.destroy();flujoChart=null;}
+  flujoChart=new Chart(document.getElementById('flujoChart'),{
+    type:'bar',
+    data:{
+      labels:monthly.map(m=>m.mes.substring(0,3)),
+      datasets:[
+        {label:'Ingresos',data:monthly.map(m=>m.ing),backgroundColor:'#5DCAA5',borderRadius:4},
+        {label:'Egresos',data:monthly.map(m=>m.egr),backgroundColor:'#F0997B',borderRadius:4},
+        {label:'Flujo neto',data:monthly.map(m=>m.neto),type:'line',borderColor:'var(--blue)',backgroundColor:'transparent',borderWidth:2,pointRadius:4,pointBackgroundColor:'var(--blue)',tension:.3}
+      ]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{grid:{display:false},ticks:{font:{size:11,family:'DM Mono'}}},
+        y:{grid:{color:'rgba(128,128,128,.1)'},ticks:{font:{size:11,family:'DM Mono'},callback:v=>'$'+(v/1000).toFixed(0)+'k'}}
       }
     }
-    return ContentService
-      .createTextOutput(JSON.stringify({ ok: true }))
-      .setMimeType(ContentService.MimeType.JSON);
-  }
+  });
 
-  return ContentService
-    .createTextOutput(JSON.stringify({ ok: false, error: 'Acción no reconocida' }))
-    .setMimeType(ContentService.MimeType.JSON);
+  document.getElementById('tbody-flujo').innerHTML=monthly.map(m=>`
+    <tr class="${m.isCur?'cur-month':''}">
+      <td style="font-weight:500">${m.mes}${m.isCur?' ◀':''}</td>
+      <td class="r v-pos">${fmt(m.ing)}</td>
+      <td class="r v-neg">${fmt(m.egr)}</td>
+      <td class="r ${m.neto>=0?'v-pos':'v-neg'}">${(m.neto>=0?'+ ':'-')+fmt(Math.abs(m.neto))}</td>
+      <td class="r ${m.saldo>=0?'v-pos':'v-neg'}" style="font-weight:600">${fmtS(m.saldo)}</td>
+    </tr>`).join('');
 }
+
+// ACCIONES
+function addEvento(){
+  const concepto=document.getElementById('f-con').value.trim();
+  const empresa=document.getElementById('f-empresa').value;
+  const tipo=document.getElementById('f-tipo').value;
+  const fecha=document.getElementById('f-fecha').value;
+  const monto=parseFloat(document.getElementById('f-monto').value);
+  const estado=document.getElementById('f-estado').value;
+  if(!concepto||!fecha||!monto){toast('Completa todos los campos','error');return;}
+  const d=parseLocal(fecha); curYear=d.getFullYear(); curMonth=d.getMonth(); selDay=null;
+  apiAdd({concepto,empresa,tipo,fecha,monto,estado});
+  document.getElementById('f-con').value='';
+  document.getElementById('f-monto').value='';
+}
+
+function delEvento(id){
+  if(!confirm('¿Eliminar este evento?')) return;
+  apiDelete(id);
+}
+
+function chMes(dir){
+  curMonth+=dir;
+  if(curMonth>11){curMonth=0;curYear++;}
+  if(curMonth<0){curMonth=11;curYear--;}
+  selDay=null; renderCalendar(); renderEvList(null);
+}
+
+function sw(name){
+  const names=['calendario','listado','flujo'];
+  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',names[i]===name));
+  document.querySelectorAll('.section').forEach(s=>s.style.display='none');
+  document.getElementById('sec-'+name).style.display='block';
+  if(name==='flujo') renderFlujo();
+  if(name==='listado') renderListado();
+}
+
+function renderAll(){
+  renderBanner(); renderMetrics(); renderCalendar(); renderEvList(selDay);
+  const secFlujo=document.getElementById('sec-flujo');
+  const secListado=document.getElementById('sec-listado');
+  if(secFlujo.style.display!=='none') renderFlujo();
+  if(secListado.style.display!=='none') renderListado();
+}
+
+// INIT
+document.getElementById('f-fecha').value=today.toISOString().split('T')[0];
+apiGet();
+setInterval(apiGet,60000);
+</script>
+</body>
+</html>
